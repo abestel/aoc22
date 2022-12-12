@@ -283,7 +283,7 @@ fn run_challenge2<P>(path: P) -> Result<u64, Error>
         .filter(|&s| s >= minimum_space_to_free)
         .min();
 
-    removed_dir_size.ok_or_else(|| Error::NoDirectoryFound)
+    removed_dir_size.ok_or(Error::NoDirectoryFound)
 }
 
 #[cfg(test)]
