@@ -1,14 +1,17 @@
+use nom::{
+    Finish,
+    IResult,
+    character::complete,
+    combinator::{all_consuming, map, map_parser, opt},
+    multi::many1,
+    sequence::terminated,
+};
 use std::{
     collections::HashSet,
-    fmt::Debug,
-    fs::File,
-    io::{BufReader, BufRead},
+    hash::Hash,
     iter::Chain,
-    path::Path,
     slice::Iter,
-    str::FromStr,
 };
-use std::hash::Hash;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -16,21 +19,15 @@ struct Item {
     id: char,
 }
 
-impl TryFrom<char> for Item {
-    type Error = Error;
-
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        if ('a'..='z').contains(&value) || ('A'..='Z').contains(&value) {
-            Ok(Item { id: value })
-        } else {
-            Err(Error::UnparsableItem(value))
-        }
-    }
-}
-
 impl Item {
-    fn from_str(s: &str) -> Result<Vec<Item>, Error> {
-        s.chars().map(Item::try_from).collect()
+    fn parse(i: &str) -> IResult<&str, Vec<Self>> {
+        map(
+            map_parser(
+                complete::alpha1,
+                many1(complete::anychar),
+            ),
+            |ids| ids.iter().cloned().map(|id| Item { id }).collect(),
+        )(i)
     }
 
     fn priority(&self) -> u32 {
@@ -48,23 +45,20 @@ struct Rucksack {
     second_compartment: Vec<Item>,
 }
 
-impl FromStr for Rucksack {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() % 2 == 0 {
-            let (first, second) = s.split_at(s.len() / 2);
-            Ok(Rucksack {
-                first_compartment: Item::from_str(first)?,
-                second_compartment: Item::from_str(second)?,
-            })
-        } else {
-            Err(Error::UnbalancedRuckSack(s.to_owned()))
-        }
-    }
-}
-
 impl Rucksack {
+    fn parse(i: &str) -> IResult<&str, Self> {
+        map(
+            terminated(
+                Item::parse,
+                opt(complete::line_ending),
+            ),
+            |items| {
+                let (f, s) = items.split_at(items.len() / 2);
+                Rucksack { first_compartment: f.to_vec(), second_compartment: s.to_vec() }
+            },
+        )(i)
+    }
+
     fn common(&self) -> Result<&Item, Error> {
         let Rucksack { first_compartment, second_compartment } = self;
         common_element(first_compartment, vec![second_compartment])
@@ -117,34 +111,23 @@ enum CommonElementError<I> {
 #[derive(Error, Debug)]
 enum Error {
     #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error("Unparsable Item '{0}")]
-    UnparsableItem(char),
-    #[error("Unbalanced rucksack '{0}'")]
-    UnbalancedRuckSack(String),
+    Nom(#[from] nom::error::Error<String>),
     #[error("Invalid rucksack {0:?} - {1}")]
     InvalidRuckSack(Rucksack, CommonElementError<Item>),
     #[error("Invalid rucksack group {0:?} - {1}")]
     InvalidGroup(Vec<Rucksack>, CommonElementError<Item>),
 }
 
-fn read_input<P>(path: P) -> Result<Vec<Rucksack>, Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-    let lines = BufReader::new(file).lines();
+fn read_input(content: &str) -> Result<Vec<Rucksack>, Error> {
+    let (_, rs) = all_consuming(many1(Rucksack::parse))(content)
+        .map_err(|e| e.to_owned())
+        .finish()?;
 
-    let mut rucksacks: Vec<Rucksack> = Vec::new();
-
-    for line in lines {
-        rucksacks.push(line?.parse::<Rucksack>()?);
-    }
-
-    Ok(rucksacks)
+    Ok(rs)
 }
 
-fn run_challenge1<P>(path: P) -> Result<u32, Error>
-    where P: AsRef<Path> {
-    let rucksacks: Vec<Rucksack> = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<u32, Error> {
+    let rucksacks: Vec<Rucksack> = read_input(content)?;
 
     let common = rucksacks
         .iter()
@@ -160,9 +143,8 @@ fn run_challenge1<P>(path: P) -> Result<u32, Error>
     )
 }
 
-fn run_challenge2<P>(path: P) -> Result<u32, Error>
-    where P: AsRef<Path> {
-    let rucksacks: Vec<Rucksack> = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<u32, Error> {
+    let rucksacks: Vec<Rucksack> = read_input(content)?;
     let groups = rucksacks
         .chunks_exact(3)
         .map(|group| {
@@ -188,28 +170,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let score = run_challenge1("resources/day3_example.txt")?;
+        let score = run_challenge1(include_str!("data/day3_example.txt"))?;
         assert_eq!(score, 157);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let score = run_challenge1("resources/day3_challenge.txt")?;
+        let score = run_challenge1(include_str!("data/day3_challenge.txt"))?;
         println!("{}", score);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let score = run_challenge2("resources/day3_example.txt")?;
+        let score = run_challenge2(include_str!("data/day3_example.txt"))?;
         assert_eq!(score, 70);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let score = run_challenge2("resources/day3_challenge.txt")?;
+        let score = run_challenge2(include_str!("data/day3_challenge.txt"))?;
         println!("{}", score);
         Ok(())
     }

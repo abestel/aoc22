@@ -7,12 +7,7 @@ use nom::{
     combinator::{all_consuming, map, value},
     sequence::separated_pair,
 };
-use std::{
-    collections::HashSet,
-    fs::File,
-    io::{BufReader, BufRead},
-    path::Path,
-};
+use std::collections::HashSet;
 use thiserror::Error;
 
 #[derive(Clone, Copy, Debug)]
@@ -62,16 +57,12 @@ impl Command {
     }
 }
 
-fn read_input<P>(path: P) -> Result<Vec<Command>, Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-
+fn read_input(content: &str) -> Result<Vec<Command>, Error> {
     let mut commands = Vec::new();
-    for line in BufReader::new(file).lines() {
-        let line = line?;
-        let (_, command) = all_consuming(Command::parse)(&line)
-            .finish()
-            .map_err(|e| Error::Nom(line.clone(), e.code))?;
+    for line in content.lines() {
+        let (_, command) = all_consuming(Command::parse)(line)
+            .map_err(|e| e.to_owned())
+            .finish()?;
 
         commands.push(command);
     }
@@ -157,9 +148,8 @@ impl Grid {
     }
 }
 
-fn run_challenge1<P>(path: P) -> Result<HashSet<Pos>, Error>
-    where P: AsRef<Path> {
-    let commands = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<HashSet<Pos>, Error> {
+    let commands = read_input(content)?;
 
     let grid_size = 2;
     let mut grid = Grid::new(grid_size);
@@ -173,9 +163,8 @@ fn run_challenge1<P>(path: P) -> Result<HashSet<Pos>, Error>
     Ok(tail_pos)
 }
 
-fn run_challenge2<P>(path: P) -> Result<HashSet<Pos>, Error>
-    where P: AsRef<Path> {
-    let commands = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<HashSet<Pos>, Error> {
+    let commands = read_input(content)?;
 
     let grid_size = 10;
     let mut grid = Grid::new(grid_size);
@@ -193,8 +182,8 @@ fn run_challenge2<P>(path: P) -> Result<HashSet<Pos>, Error>
 enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("Impossible to parse '{0}' because '{1:?}'")]
-    Nom(String, nom::error::ErrorKind),
+    #[error(transparent)]
+    Nom(#[from] nom::error::Error<String>),
 }
 
 #[cfg(test)]
@@ -203,35 +192,35 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let result = run_challenge1("resources/day9_example.txt")?;
+        let result = run_challenge1(include_str!("data/day9_example.txt"))?;
         assert_eq!(result.len(), 13);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let result = run_challenge1("resources/day9_challenge.txt")?;
+        let result = run_challenge1(include_str!("data/day9_challenge.txt"))?;
         dbg!(result.len());
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let result = run_challenge2("resources/day9_example.txt")?;
+        let result = run_challenge2(include_str!("data/day9_example.txt"))?;
         assert_eq!(result.len(), 1);
         Ok(())
     }
 
     #[test]
     fn challenge2_example2() -> Result<(), Error> {
-        let result = run_challenge2("resources/day9_example2.txt")?;
+        let result = run_challenge2(include_str!("data/day9_example2.txt"))?;
         assert_eq!(result.len(), 36);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let result = run_challenge2("resources/day9_challenge.txt")?;
+        let result = run_challenge2(include_str!("data/day9_challenge.txt"))?;
         dbg!(result.len());
         Ok(())
     }

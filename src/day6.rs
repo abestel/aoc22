@@ -1,9 +1,4 @@
-use std::{
-    collections::HashSet,
-    fs::File,
-    io::{BufReader, BufRead, Lines},
-    path::Path,
-};
+use std::collections::HashSet;
 use thiserror::Error;
 
 fn find_packet_distinct_chars(s: &str, packet_size: usize) -> Result<usize, Error> {
@@ -40,31 +35,19 @@ enum Error {
     NoPacketStart(String),
 }
 
-fn read_input<P>(path: P) -> Result<Lines<BufReader<File>>, Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-    Ok(BufReader::new(file).lines())
-}
-
-fn run_challenge1<P>(path: P) -> Result<Vec<usize>, Error>
-    where P: AsRef<Path> {
-    let lines = read_input(path)?;
-
+fn run_challenge1(content: &str) -> Result<Vec<usize>, Error> {
     let mut indexes: Vec<usize> = Vec::new();
-    for line in lines {
-        indexes.push(find_packet_start(&line?)?);
+    for line in content.lines() {
+        indexes.push(find_packet_start(line)?);
     }
 
     Ok(indexes)
 }
 
-fn run_challenge2<P>(path: P) -> Result<Vec<usize>, Error>
-    where P: AsRef<Path> {
-    let lines = read_input(path)?;
-
+fn run_challenge2(content: &str) -> Result<Vec<usize>, Error> {
     let mut indexes: Vec<usize> = Vec::new();
-    for line in lines {
-        indexes.push(find_message_start(&line?)?);
+    for line in content.lines() {
+        indexes.push(find_message_start(line)?);
     }
 
     Ok(indexes)
@@ -76,28 +59,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let result = run_challenge1("resources/day6_example.txt")?;
+        let result = run_challenge1(include_str!("data/day6_example.txt"))?;
         assert_eq!(result, vec![7, 5, 6, 10, 11]);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let result = run_challenge1("resources/day6_challenge.txt")?;
+        let result = run_challenge1(include_str!("data/day6_challenge.txt"))?;
         println!("{:?}", result);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let result = run_challenge2("resources/day6_example.txt")?;
+        let result = run_challenge2(include_str!("data/day6_example.txt"))?;
         assert_eq!(result, vec![19, 23, 23, 29, 26]);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let result = run_challenge2("resources/day6_challenge.txt")?;
+        let result = run_challenge2(include_str!("data/day6_challenge.txt"))?;
         println!("{:?}", result);
         Ok(())
     }

@@ -2,9 +2,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
     fmt::{Debug, Display, Formatter},
-    fs::File,
-    io::{BufReader, BufRead},
-    path::Path,
     str::{self, FromStr},
 };
 use thiserror::Error;
@@ -238,19 +235,13 @@ enum ReadAction {
     ReadCraneActions,
 }
 
-fn read_input<P>(path: P) -> Result<(Stacks, Vec<CraneAction>), Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-    let lines = BufReader::new(file).lines();
-
+fn read_input(content: &str) -> Result<(Stacks, Vec<CraneAction>), Error> {
     let mut stack_lines: Vec<StackLine> = Vec::new();
     let mut actions: Vec<CraneAction> = Vec::new();
 
     let mut read = ReadAction::ReadStackLines;
 
-    for line in lines {
-        let line = line?;
-
+    for line in content.lines() {
         match read {
             ReadAction::ReadStackLines => {
                 if line.starts_with('[') || line.starts_with("    ") {
@@ -282,9 +273,8 @@ fn read_input<P>(path: P) -> Result<(Stacks, Vec<CraneAction>), Error>
     )
 }
 
-fn run_challenge1<P>(path: P) -> Result<String, Error>
-    where P: AsRef<Path> {
-    let (mut stacks, actions) = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<String, Error> {
+    let (mut stacks, actions) = read_input(content)?;
 
     println!("Initial state:\n{}\n", stacks);
 
@@ -302,9 +292,8 @@ fn run_challenge1<P>(path: P) -> Result<String, Error>
     )
 }
 
-fn run_challenge2<P>(path: P) -> Result<String, Error>
-    where P: AsRef<Path> {
-    let (mut stacks, actions) = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<String, Error> {
+    let (mut stacks, actions) = read_input(content)?;
 
     println!("Initial state:\n{}\n", stacks);
 
@@ -329,28 +318,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let result = run_challenge1("resources/day5_example.txt")?;
+        let result = run_challenge1(include_str!("data/day5_example.txt"))?;
         assert_eq!(result, "CMZ");
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let result = run_challenge1("resources/day5_challenge.txt")?;
+        let result = run_challenge1(include_str!("data/day5_challenge.txt"))?;
         println!("{}", result);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let result = run_challenge2("resources/day5_example.txt")?;
+        let result = run_challenge2(include_str!("data/day5_example.txt"))?;
         assert_eq!(result, "MCD");
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let result = run_challenge2("resources/day5_challenge.txt")?;
+        let result = run_challenge2(include_str!("data/day5_challenge.txt"))?;
         println!("{}", result);
         Ok(())
     }

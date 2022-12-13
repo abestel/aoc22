@@ -12,10 +12,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     fmt,
-    fs::File,
-    io::{BufRead, BufReader},
     iter,
-    path::Path,
     rc::Rc,
 };
 use thiserror::Error;
@@ -96,8 +93,8 @@ fn parse_line(i: &str) -> IResult<&str, Line> {
 enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("Impossible to parse '{0}' because '{1:?}'")]
-    Nom(String, nom::error::ErrorKind),
+    #[error(transparent)]
+    Nom(#[from] nom::error::Error<String>),
     #[error("No directory found")]
     NoDirectoryFound,
 }
@@ -188,18 +185,14 @@ impl<'a> fmt::Debug for PrettyNode<'a> {
 }
 
 
-fn read_input<P>(path: P) -> Result<NodeHandle, Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-
+fn read_input(content: &str) -> Result<NodeHandle, Error> {
     let root = Rc::new(RefCell::new(Node::new_dir("/".parse().unwrap(), None)));
     let mut node = root.clone();
 
-    for line in BufReader::new(file).lines() {
-        let line = line?;
-        let (_, line) = all_consuming(parse_line)(&line)
-            .finish()
-            .map_err(|e| Error::Nom(line.clone(), e.code))?;
+    for line in content.lines() {
+        let (_, line) = all_consuming(parse_line)(line)
+            .map_err(|e| e.to_owned())
+            .finish()?;
 
         println!("{:?}", line);
 
@@ -256,9 +249,8 @@ fn read_input<P>(path: P) -> Result<NodeHandle, Error>
     Ok(root)
 }
 
-fn run_challenge1<P>(path: P) -> Result<u64, Error>
-    where P: AsRef<Path> {
-    let nodes = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<u64, Error> {
+    let nodes = read_input(content)?;
 
     let sum = all_dirs(nodes)
         .map(|d| d.borrow().total_size())
@@ -268,9 +260,8 @@ fn run_challenge1<P>(path: P) -> Result<u64, Error>
     Ok(sum)
 }
 
-fn run_challenge2<P>(path: P) -> Result<u64, Error>
-    where P: AsRef<Path> {
-    let root = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<u64, Error> {
+    let root = read_input(content)?;
 
     let total_space = 70000000_u64;
     let used_space = root.borrow().total_size();
@@ -292,28 +283,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let sum = run_challenge1("resources/day7_example.txt")?;
+        let sum = run_challenge1(include_str!("data/day7_example.txt"))?;
         assert_eq!(sum, 95437);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let sum = run_challenge1("resources/day7_challenge.txt")?;
+        let sum = run_challenge1(include_str!("data/day7_challenge.txt"))?;
         dbg!(sum);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let size = run_challenge2("resources/day7_example.txt")?;
+        let size = run_challenge2(include_str!("data/day7_example.txt"))?;
         assert_eq!(size, 24933642);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let sum = run_challenge2("resources/day7_challenge.txt")?;
+        let sum = run_challenge2(include_str!("data/day7_challenge.txt"))?;
         dbg!(sum);
         Ok(())
     }

@@ -1,33 +1,32 @@
-use std::{
-    fmt::Debug,
-    fs::File,
-    io::{BufReader, BufRead},
-    path::Path,
-    str::FromStr,
+use nom::{
+    Finish,
+    IResult,
+    branch::alt,
+    bytes::complete::tag,
+    character::complete,
+    combinator::{all_consuming, map, opt, value},
+    multi::many1,
+    sequence::separated_pair,
 };
+use nom::sequence::terminated;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum Outcome {
     Win,
     Draw,
     Lost,
 }
 
-impl FromStr for Outcome {
-    type Err = Error;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "X" => Ok(Outcome::Lost),
-            "Y" => Ok(Outcome::Draw),
-            "Z" => Ok(Outcome::Win),
-            other => Err(Error::UnknownOutcome(other.to_owned()))
-        }
-    }
-}
-
 impl Outcome {
+    fn parse(i: &str) -> IResult<&str, Self> {
+        alt((
+            value(Outcome::Lost, tag("X")),
+            value(Outcome::Draw, tag("Y")),
+            value(Outcome::Win, tag("Z")),
+        ))(i)
+    }
+
     fn score(&self) -> u32 {
         match self {
             Outcome::Win => 6_u32,
@@ -45,6 +44,17 @@ enum Shape {
 }
 
 impl Shape {
+    fn parse(i: &str) -> IResult<&str, Self> {
+        alt((
+            value(Shape::Rock, tag("X")),
+            value(Shape::Rock, tag("A")),
+            value(Shape::Paper, tag("Y")),
+            value(Shape::Paper, tag("B")),
+            value(Shape::Scissors, tag("Z")),
+            value(Shape::Scissors, tag("C")),
+        ))(i)
+    }
+
     fn against(&self, other: &Shape) -> Outcome {
         match (self, other) {
             (first, second) if first == second => Outcome::Draw,
@@ -76,39 +86,23 @@ impl Shape {
     }
 }
 
-impl FromStr for Shape {
-    type Err = Error;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "A" | "X" => Ok(Shape::Rock),
-            "B" | "Y" => Ok(Shape::Paper),
-            "C" | "Z" => Ok(Shape::Scissors),
-            other => Err(Error::UnknownShape(other.to_owned()))
-        }
-    }
-}
-
 #[derive(Debug)]
 struct Round {
     elf: Shape,
     me: Shape,
 }
 
-impl FromStr for Round {
-    type Err = Error;
-
-    fn from_str(line: &str) -> Result<Self, Self::Err> {
-        let mut shapes = line.split(' ').map(|value| value.parse::<Shape>());
-
-        Ok(Round {
-            elf: shapes.next().ok_or_else(|| Error::UnparsableLine(line.to_owned()))??,
-            me: shapes.next().ok_or_else(|| Error::UnparsableLine(line.to_owned()))??,
-        })
-    }
-}
-
 impl Round {
+    fn parse(i: &str) -> IResult<&str, Self> {
+        terminated(
+            map(
+                separated_pair(Shape::parse, complete::space1, Shape::parse),
+                |(elf, me)| Round { elf, me },
+            ),
+            opt(complete::line_ending),
+        )(i)
+    }
+
     fn score(&self) -> u32 {
         let shape_score = self.me.score();
         let outcome_score = self.me.against(&self.elf).score();
@@ -122,20 +116,17 @@ struct RoundV2 {
     me: Outcome,
 }
 
-impl FromStr for RoundV2 {
-    type Err = Error;
-
-    fn from_str(line: &str) -> Result<Self, Self::Err> {
-        let mut shapes = line.split(' ');
-
-        Ok(RoundV2 {
-            elf: shapes.next().ok_or_else(|| Error::UnparsableLine(line.to_owned()))?.parse()?,
-            me: shapes.next().ok_or_else(|| Error::UnparsableLine(line.to_owned()))?.parse()?,
-        })
-    }
-}
-
 impl RoundV2 {
+    fn parse(i: &str) -> IResult<&str, Self> {
+        terminated(
+            map(
+                separated_pair(Shape::parse, complete::space1, Outcome::parse),
+                |(elf, me)| RoundV2 { elf, me },
+            ),
+            opt(complete::line_ending),
+        )(i)
+    }
+
     fn score(&self) -> u32 {
         let shape_score = self.elf.deduce_from_outcome(&self.me).score();
         let outcome_score = self.me.score();
@@ -146,39 +137,20 @@ impl RoundV2 {
 #[derive(Error, Debug)]
 enum Error {
     #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error("Unknown shape '{0}'")]
-    UnknownShape(String),
-    #[error("Unknown outcome '{0}'")]
-    UnknownOutcome(String),
-    #[error("Unparsable line '{0}'")]
-    UnparsableLine(String),
+    Nom(#[from] nom::error::Error<String>),
 }
 
-fn read_input<P, R>(path: P) -> Result<Vec<R>, Error>
-    where P: AsRef<Path>,
-          R: FromStr<Err=Error> {
-    let file = File::open(path)?;
-    let lines = BufReader::new(file).lines();
-
-    let mut rounds: Vec<R> = Vec::new();
-
-    for line in lines {
-        rounds.push(line?.parse::<R>()?);
-    }
-
-    Ok(rounds)
-}
-
-fn run_challenge1<P>(path: P) -> Result<u32, anyhow::Error>
-    where P: AsRef<Path> {
-    let rounds: Vec<Round> = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<u32, Error> {
+    let (_, rounds) = all_consuming(many1(Round::parse))(content)
+        .map_err(|e| e.to_owned())
+        .finish()?;
     Ok(rounds.iter().map(Round::score).sum())
 }
 
-fn run_challenge2<P>(path: P) -> Result<u32, anyhow::Error>
-    where P: AsRef<Path> {
-    let rounds: Vec<RoundV2> = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<u32, anyhow::Error> {
+    let (_, rounds) = all_consuming(many1(RoundV2::parse))(content)
+        .map_err(|e| e.to_owned())
+        .finish()?;
     Ok(rounds.iter().map(RoundV2::score).sum())
 }
 
@@ -188,28 +160,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), anyhow::Error> {
-        let score = run_challenge1("resources/day2_example.txt")?;
+        let score = run_challenge1(include_str!("data/day2_example.txt"))?;
         assert_eq!(score, 15);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), anyhow::Error> {
-        let score = run_challenge1("resources/day2_challenge.txt")?;
+        let score = run_challenge1(include_str!("data/day2_challenge.txt"))?;
         println!("{}", score);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), anyhow::Error> {
-        let score = run_challenge2("resources/day2_example.txt")?;
+        let score = run_challenge2(include_str!("data/day2_example.txt"))?;
         assert_eq!(score, 12);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), anyhow::Error> {
-        let score = run_challenge2("resources/day2_challenge.txt")?;
+        let score = run_challenge2(include_str!("data/day2_challenge.txt"))?;
         println!("{}", score);
         Ok(())
     }

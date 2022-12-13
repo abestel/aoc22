@@ -1,8 +1,3 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
-};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -97,15 +92,12 @@ impl Trees {
     }
 }
 
-fn read_input<P>(path: P) -> Result<Trees, Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-
+fn read_input(content: &str) -> Result<Trees, Error> {
     let mut trees: Vec<Vec<u32>> = Vec::new();
-    for line in BufReader::new(file).lines() {
+    for line in content.lines() {
         let mut current_line: Vec<u32> = Vec::new();
 
-        for char in line?.chars() {
+        for char in line.chars() {
             current_line.push(
                 char
                     .to_digit(10)
@@ -139,15 +131,13 @@ fn read_input<P>(path: P) -> Result<Trees, Error>
     }
 }
 
-fn run_challenge1<P>(path: P) -> Result<usize, Error>
-    where P: AsRef<Path> {
-    let trees = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<usize, Error> {
+    let trees = read_input(content)?;
     Ok(trees.visible_trees())
 }
 
-fn run_challenge2<P>(path: P) -> Result<usize, Error>
-    where P: AsRef<Path> {
-    let trees = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<usize, Error> {
+    let trees = read_input(content)?;
     trees.max_scenic_score().ok_or(Error::EmptyInput)
 }
 
@@ -157,28 +147,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let sum = run_challenge1("resources/day8_example.txt")?;
+        let sum = run_challenge1(include_str!("data/day8_example.txt"))?;
         assert_eq!(sum, 21);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let sum = run_challenge1("resources/day8_challenge.txt")?;
+        let sum = run_challenge1(include_str!("data/day8_challenge.txt"))?;
         dbg!(sum);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let size = run_challenge2("resources/day8_example.txt")?;
+        let size = run_challenge2(include_str!("data/day8_example.txt"))?;
         assert_eq!(size, 8);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let sum = run_challenge2("resources/day8_challenge.txt")?;
+        let sum = run_challenge2(include_str!("data/day8_challenge.txt"))?;
         dbg!(sum);
         Ok(())
     }

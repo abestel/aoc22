@@ -10,9 +10,6 @@ use nom::{
 use std::{
     collections::VecDeque,
     fmt::{self, Formatter},
-    fs::File,
-    io::{BufReader, BufRead},
-    path::Path
 };
 use thiserror::Error;
 
@@ -41,16 +38,12 @@ impl Command {
     }
 }
 
-fn read_input<P>(path: P) -> Result<VecDeque<Command>, Error>
-    where P: AsRef<Path> {
-    let file = File::open(path)?;
-
+fn read_input(content: &str) -> Result<VecDeque<Command>, Error> {
     let mut commands = VecDeque::new();
-    for line in BufReader::new(file).lines() {
-        let line = line?;
-        let (_, command) = all_consuming(Command::parse)(&line)
-            .finish()
-            .map_err(|e| Error::Nom(line.clone(), e.code))?;
+    for line in content.lines() {
+        let (_, command) = all_consuming(Command::parse)(line)
+            .map_err(|e| e.to_owned())
+            .finish()?;
 
         commands.push_back(command);
     }
@@ -143,15 +136,13 @@ fn run_loop(mut commands: VecDeque<Command>) -> Result<(i64, Machine), Error> {
     Ok((strength, machine))
 }
 
-fn run_challenge1<P>(path: P) -> Result<i64, Error>
-    where P: AsRef<Path> {
-    let commands = read_input(path)?;
+fn run_challenge1(content: &str) -> Result<i64, Error> {
+    let commands = read_input(content)?;
     Ok(run_loop(commands)?.0)
 }
 
-fn run_challenge2<P>(path: P) -> Result<Machine, Error>
-    where P: AsRef<Path> {
-    let commands = read_input(path)?;
+fn run_challenge2(content: &str) -> Result<Machine, Error> {
+    let commands = read_input(content)?;
     Ok(run_loop(commands)?.1)
 }
 
@@ -159,8 +150,8 @@ fn run_challenge2<P>(path: P) -> Result<Machine, Error>
 enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("Impossible to parse '{0}' because '{1:?}'")]
-    Nom(String, nom::error::ErrorKind),
+    #[error(transparent)]
+    Nom(#[from] nom::error::Error<String>),
 }
 
 
@@ -170,28 +161,28 @@ mod tests {
 
     #[test]
     fn challenge1_example() -> Result<(), Error> {
-        let result = run_challenge1("resources/day10_example.txt")?;
+        let result = run_challenge1(include_str!("data/day10_example.txt"))?;
         assert_eq!(result, 13140);
         Ok(())
     }
 
     #[test]
     fn challenge1() -> Result<(), Error> {
-        let result = run_challenge1("resources/day10_challenge.txt")?;
+        let result = run_challenge1(include_str!("data/day10_challenge.txt"))?;
         dbg!(result);
         Ok(())
     }
 
     #[test]
     fn challenge2_example() -> Result<(), Error> {
-        let result = run_challenge2("resources/day10_example.txt")?;
+        let result = run_challenge2(include_str!("data/day10_example.txt"))?;
         println!("{}", result);
         Ok(())
     }
 
     #[test]
     fn challenge2() -> Result<(), Error> {
-        let result = run_challenge2("resources/day10_challenge.txt")?;
+        let result = run_challenge2(include_str!("data/day10_challenge.txt"))?;
         println!("{}", result);
         Ok(())
     }
